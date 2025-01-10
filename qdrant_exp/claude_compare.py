@@ -1,3 +1,4 @@
+from tqdm import tqdm
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 import numpy as np
@@ -21,7 +22,7 @@ class QdrantBenchmark:
 
     def setup_separate_collections(self, test_data: Dict):
         """Create separate collection for each user"""
-        for user_id in test_data.keys():
+        for user_id in tqdm(test_data.keys()):
             collection_name = f"user_{user_id}"
             self.client.recreate_collection(
                 collection_name=collection_name,
@@ -43,7 +44,10 @@ class QdrantBenchmark:
         self.client.create_payload_index(
             collection_name="single_collection",
             field_name="user_id",
-            field_schema=models.PayloadSchemaType.KEYWORD,
+            field_schema=models.KeywordIndexParams(
+                type=models.KeywordIndexType.KEYWORD,
+                is_tenant=True,
+            ),
         )
 
     def benchmark_separate_collections(self, test_data: Dict) -> Dict:
@@ -52,7 +56,7 @@ class QdrantBenchmark:
         search_times = []
 
         # Insertion benchmark
-        for user_id, vectors in test_data.items():
+        for user_id, vectors in tqdm(test_data.items()):
             collection_name = f"user_{user_id}"
             start_time = time.time()
 
@@ -74,7 +78,7 @@ class QdrantBenchmark:
             insert_times.append(time.time() - start_time)
 
         # Search benchmark
-        for user_id, vectors in test_data.items():
+        for user_id, vectors in tqdm(test_data.items()):
             collection_name = f"user_{user_id}"
             query_vector = np.random.rand(1, self.vector_size)
 
@@ -98,12 +102,12 @@ class QdrantBenchmark:
 
         # Insertion benchmark
         start_time = time.time()
-        for user_id, vectors in test_data.items():
+        for user_id, vectors in tqdm(test_data.items()):
             points = [
                 models.PointStruct(
                     id=idx + (user_id * len(vectors)),
                     vector=vector.tolist(),
-                    payload={"user_id": user_id, "vector_id": idx}
+                    payload={"user_id": str(user_id), "vector_id": idx}
                 )
                 for idx, vector in enumerate(vectors)
             ]
@@ -117,7 +121,7 @@ class QdrantBenchmark:
             start_time = time.time()
 
         # Search benchmark
-        for user_id, vectors in test_data.items():
+        for user_id, vectors in tqdm(test_data.items()):
             query_vector = np.random.rand(1, self.vector_size)[0]
 
             start_time = time.time()
